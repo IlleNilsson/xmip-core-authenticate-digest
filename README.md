@@ -1,12 +1,6 @@
 # xmip-core-authenticate-digest
 
-Authenticate by digest: verifies an HTTP Digest response against the same store and the nonce. A technology of
-[xmip-core-authenticate](https://github.com/IlleNilsson/xmip-core-authenticate).
-
-Declared and not yet written; `architecture.toml` carries the maturity. When
-it is written it implements `Authenticator`, one mechanism at one gate (ADR-0050).
-What it may depend on is `repository-model.md` section 4 and ADR-0044: its
-capability, and no sibling.
+Authenticate by HTTP Digest: verifies an RFC 7616 response against the stored HA1 for the realm and a nonce this node issued. A technology of [xmip-core-authenticate](https://github.com/IlleNilsson/xmip-core-authenticate).
 
 ## Toolchain
 
