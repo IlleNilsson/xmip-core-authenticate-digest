@@ -30,12 +30,10 @@ pub use response::{Algorithm, Response};
 use authenticate::store::{CredentialStore, constant_time_eq};
 use authenticate::{AuthenticateError, Authenticator, Presented};
 use context::Verified;
+use identify::authorization::DIGEST_RESPONSE;
 use std::time::{SystemTime, UNIX_EPOCH};
 use xcore::{Mechanism, mechanism};
 
-/// The proof name this verifier reads off a `Presented`: the whole Digest
-/// parameter list.
-pub const PROOF: &str = "digest.response";
 /// The evidence name the request's method is read from.
 pub const METHOD: &str = "http.method";
 /// The evidence name the request's target is read from, where there is one.
@@ -160,9 +158,9 @@ impl Authenticator for DigestAuthenticator {
                 presented.mechanism.name()
             )));
         }
-        let list = presented.proof(PROOF).ok_or_else(|| {
+        let list = presented.proof(DIGEST_RESPONSE).ok_or_else(|| {
             AuthenticateError::new(format!(
-                "no '{PROOF}' proof was presented with the username '{}'",
+                "no '{DIGEST_RESPONSE}' proof was presented with the username '{}'",
                 presented.value
             ))
         })?;
@@ -245,7 +243,7 @@ mod tests {
     fn claim(list: &str) -> Presented {
         Presented::passed(mechanism::username(), "alice")
             .with_evidence(METHOD, "POST")
-            .with_proof(PROOF, list)
+            .with_proof(DIGEST_RESPONSE, list)
     }
 
     #[test]
@@ -281,7 +279,7 @@ mod tests {
         );
         let unknown = Presented::passed(mechanism::username(), "mallory")
             .with_evidence(METHOD, "POST")
-            .with_proof(PROOF, wrong.replace("alice", "mallory"));
+            .with_proof(DIGEST_RESPONSE, wrong.replace("alice", "mallory"));
         assert_eq!(
             verifier.verify(&unknown).expect("verified"),
             Verified::Refused
@@ -343,7 +341,7 @@ mod tests {
 
         let bob = Presented::passed(mechanism::username(), "bob")
             .with_evidence(METHOD, "POST")
-            .with_proof(PROOF, list.as_str());
+            .with_proof(DIGEST_RESPONSE, list.as_str());
         let failure = verifier.verify(&bob).expect_err("refused");
         assert!(
             failure.message.contains("names 'bob'"),
@@ -362,8 +360,9 @@ mod tests {
 
     #[test]
     fn the_method_comes_from_evidence_or_configuration_and_is_asked_for_by_name() {
-        let bare =
-            |list: &str| Presented::passed(mechanism::username(), "alice").with_proof(PROOF, list);
+        let bare = |list: &str| {
+            Presented::passed(mechanism::username(), "alice").with_proof(DIGEST_RESPONSE, list)
+        };
         let verifier = verifier();
         let nonce = verifier.issue_nonce();
         let list = answer("MD5", &nonce, "00000001", "pencil", "PUT");
