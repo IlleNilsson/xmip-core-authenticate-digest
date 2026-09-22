@@ -11,6 +11,7 @@
 
 use authenticate::AuthenticateError;
 use authenticate::store::{MD5, SHA_256, hex, sha256};
+use identify::authorization;
 
 /// The hash a response was computed with.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -93,33 +94,6 @@ pub struct Response {
     pub count: u32,
 }
 
-/// Split a parameter list at the commas outside quotes, and each parameter
-/// at its first `=`, unquoting and unescaping the value.
-fn parameters(list: &str) -> Vec<(String, String)> {
-    let mut pairs = Vec::new();
-    let mut current = String::new();
-    let mut quoted = false;
-    let mut escaped = false;
-    for character in list.chars().chain(std::iter::once(',')) {
-        if escaped {
-            current.push(character);
-            escaped = false;
-        } else if quoted && character == '\\' {
-            escaped = true;
-        } else if character == '"' {
-            quoted = !quoted;
-        } else if character == ',' && !quoted {
-            if let Some((name, value)) = current.split_once('=') {
-                pairs.push((name.trim().to_ascii_lowercase(), value.trim().to_string()));
-            }
-            current.clear();
-        } else {
-            current.push(character);
-        }
-    }
-    pairs
-}
-
 impl Response {
     /// Read the parameter list, with or without the `Digest ` it followed.
     ///
@@ -129,12 +103,8 @@ impl Response {
     /// verifies, `qop` is not `auth`, the username is hashed, or `nc` is not
     /// hexadecimal.
     pub fn parse(list: &str) -> Result<Self, AuthenticateError> {
-        let list = list.trim();
-        let list = match list.get(..7) {
-            Some(scheme) if scheme.eq_ignore_ascii_case("digest ") => &list[7..],
-            _ => list,
-        };
-        let pairs = parameters(list);
+        let list = authorization::under(list, "digest").unwrap_or(list);
+        let pairs = authorization::parameters(list);
         let find = |name: &str| {
             pairs
                 .iter()
