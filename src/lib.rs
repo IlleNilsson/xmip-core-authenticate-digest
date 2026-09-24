@@ -27,29 +27,17 @@ pub mod response;
 pub use nonce::Nonces;
 pub use response::{Algorithm, Response};
 
+use authenticate::clock::Clock;
 use authenticate::store::{CredentialStore, constant_time_eq};
 use authenticate::{AuthenticateError, Authenticator, Presented};
 use context::Verified;
-use identify::authorization::DIGEST_RESPONSE;
-use std::time::{SystemTime, UNIX_EPOCH};
+use identify::evidence::{self, DIGEST_RESPONSE};
 use xcore::{Mechanism, mechanism};
 
 /// The evidence name the request's method is read from.
 pub const METHOD: &str = "http.method";
 /// The evidence name the request's target is read from, where there is one.
 pub const URI: &str = "http.uri";
-
-type Clock = Box<dyn Fn() -> i64 + Send + Sync>;
-
-/// Seconds since the Unix epoch, now.
-#[must_use]
-pub fn now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| {
-            i64::try_from(since.as_secs()).unwrap_or(i64::MAX)
-        })
-}
 
 /// Verifies a `username` claim with a `digest.response` proof, for one realm.
 pub struct DigestAuthenticator {
@@ -69,7 +57,7 @@ impl DigestAuthenticator {
             realm: realm.into(),
             method: None,
             nonces: Nonces::default(),
-            clock: Box::new(now),
+            clock: Clock::system(0),
         }
     }
 
@@ -91,7 +79,7 @@ impl DigestAuthenticator {
     /// Where the time comes from; the tests pin it.
     #[must_use]
     pub fn with_clock(mut self, clock: impl Fn() -> i64 + Send + Sync + 'static) -> Self {
-        self.clock = Box::new(clock);
+        self.clock = self.clock.reading(clock);
         self
     }
 
@@ -110,7 +98,7 @@ impl DigestAuthenticator {
     /// Issue a nonce, for a challenge the caller words itself.
     #[must_use]
     pub fn issue_nonce(&self) -> String {
-        self.nonces.issue((self.clock)())
+        self.nonces.issue(self.clock.now())
     }
 
     /// A `WWW-Authenticate` value challenging for this realm with a fresh
@@ -158,7 +146,7 @@ impl Authenticator for DigestAuthenticator {
                 presented.mechanism.name()
             )));
         }
-        let list = presented.proof(DIGEST_RESPONSE).ok_or_else(|| {
+        let list = presented.proof(evidence::DIGEST_RESPONSE).ok_or_else(|| {
             AuthenticateError::new(format!(
                 "no '{DIGEST_RESPONSE}' proof was presented with the username '{}'",
                 presented.value
@@ -202,7 +190,7 @@ impl Authenticator for DigestAuthenticator {
             return Ok(Verified::Refused);
         }
         self.nonces
-            .spend(&response.nonce, response.count, (self.clock)())?;
+            .spend(&response.nonce, response.count, self.clock.now())?;
         Ok(Verified::Proven)
     }
 }
@@ -243,7 +231,7 @@ mod tests {
     fn claim(list: &str) -> Presented {
         Presented::passed(mechanism::username(), "alice")
             .with_evidence(METHOD, "POST")
-            .with_proof(DIGEST_RESPONSE, list)
+            .with_proof(evidence::DIGEST_RESPONSE, list)
     }
 
     #[test]
@@ -279,7 +267,7 @@ mod tests {
         );
         let unknown = Presented::passed(mechanism::username(), "mallory")
             .with_evidence(METHOD, "POST")
-            .with_proof(DIGEST_RESPONSE, wrong.replace("alice", "mallory"));
+            .with_proof(evidence::DIGEST_RESPONSE, wrong.replace("alice", "mallory"));
         assert_eq!(
             verifier.verify(&unknown).expect("verified"),
             Verified::Refused
@@ -341,7 +329,7 @@ mod tests {
 
         let bob = Presented::passed(mechanism::username(), "bob")
             .with_evidence(METHOD, "POST")
-            .with_proof(DIGEST_RESPONSE, list.as_str());
+            .with_proof(evidence::DIGEST_RESPONSE, list.as_str());
         let failure = verifier.verify(&bob).expect_err("refused");
         assert!(
             failure.message.contains("names 'bob'"),
@@ -361,7 +349,8 @@ mod tests {
     #[test]
     fn the_method_comes_from_evidence_or_configuration_and_is_asked_for_by_name() {
         let bare = |list: &str| {
-            Presented::passed(mechanism::username(), "alice").with_proof(DIGEST_RESPONSE, list)
+            Presented::passed(mechanism::username(), "alice")
+                .with_proof(evidence::DIGEST_RESPONSE, list)
         };
         let verifier = verifier();
         let nonce = verifier.issue_nonce();

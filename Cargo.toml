@@ -24,6 +24,8 @@ xcore = { package = "xmip-core", git = "https://github.com/IlleNilsson/xmip-core
 context = { package = "xmip-core-context", git = "https://github.com/IlleNilsson/xmip-core-context", branch = "main" }
 # RFC 7616 names MD5 beside SHA-256, and clients still send it. Pure Rust.
 md5 = "0.7"
+# The estate's encoding primitives: hex, which Digest writes every hash in.
+codec = { package = "xmip-core-library-codec", git = "https://github.com/IlleNilsson/xmip-core-library-codec", branch = "main" }
 
 [lints.rust]
 unsafe_code = "forbid"
