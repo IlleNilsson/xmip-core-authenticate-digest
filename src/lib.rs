@@ -29,15 +29,12 @@ pub use response::{Algorithm, Response};
 
 use authenticate::clock::Clock;
 use authenticate::store::{CredentialStore, constant_time_eq};
-use authenticate::{AuthenticateError, Authenticator, Presented};
+use authenticate::{AuthenticateError, Authenticator};
 use context::Verified;
+use context::property::{HTTP_METHOD, HTTP_URI};
+use identify::Presented;
 use identify::evidence::{self, DIGEST_RESPONSE};
 use xcore::{Mechanism, mechanism};
-
-/// The evidence name the request's method is read from.
-pub const METHOD: &str = "http.method";
-/// The evidence name the request's target is read from, where there is one.
-pub const URI: &str = "http.uri";
 
 /// Verifies a `username` claim with a `digest.response` proof, for one realm.
 pub struct DigestAuthenticator {
@@ -165,14 +162,14 @@ impl Authenticator for DigestAuthenticator {
                 response.realm, self.realm
             )));
         }
-        let method = evidence(presented, METHOD)
+        let method = evidence(presented, HTTP_METHOD)
             .or(self.method.as_deref())
             .ok_or_else(|| {
                 AuthenticateError::new(format!(
-                    "the claim carries no '{METHOD}' evidence and no method is configured"
+                    "the claim carries no '{HTTP_METHOD}' evidence and no method is configured"
                 ))
             })?;
-        if let Some(target) = evidence(presented, URI)
+        if let Some(target) = evidence(presented, HTTP_URI)
             && target != response.uri
         {
             return Err(AuthenticateError::new(format!(
@@ -230,7 +227,7 @@ mod tests {
 
     fn claim(list: &str) -> Presented {
         Presented::passed(mechanism::username(), "alice")
-            .with_evidence(METHOD, "POST")
+            .with_evidence(HTTP_METHOD, "POST")
             .with_proof(evidence::DIGEST_RESPONSE, list)
     }
 
@@ -266,7 +263,7 @@ mod tests {
             Verified::Refused
         );
         let unknown = Presented::passed(mechanism::username(), "mallory")
-            .with_evidence(METHOD, "POST")
+            .with_evidence(HTTP_METHOD, "POST")
             .with_proof(evidence::DIGEST_RESPONSE, wrong.replace("alice", "mallory"));
         assert_eq!(
             verifier.verify(&unknown).expect("verified"),
@@ -319,7 +316,7 @@ mod tests {
         let nonce = verifier.issue_nonce();
         let list = answer("SHA-256", &nonce, "00000001", "pencil", "POST");
 
-        let elsewhere = claim(&list).with_evidence(URI, "/in/invoices");
+        let elsewhere = claim(&list).with_evidence(HTTP_URI, "/in/invoices");
         let failure = verifier.verify(&elsewhere).expect_err("refused");
         assert!(
             failure.message.contains("'/in/invoices'"),
@@ -328,7 +325,7 @@ mod tests {
         );
 
         let bob = Presented::passed(mechanism::username(), "bob")
-            .with_evidence(METHOD, "POST")
+            .with_evidence(HTTP_METHOD, "POST")
             .with_proof(evidence::DIGEST_RESPONSE, list.as_str());
         let failure = verifier.verify(&bob).expect_err("refused");
         assert!(
@@ -342,7 +339,7 @@ mod tests {
         assert!(failure.message.contains("'other'"), "{}", failure.message);
 
         // Nothing above spent the count; with the right target it proves.
-        let here = claim(&list).with_evidence(URI, "/in/orders");
+        let here = claim(&list).with_evidence(HTTP_URI, "/in/orders");
         assert_eq!(verifier.verify(&here).expect("verified"), Verified::Proven);
     }
 
