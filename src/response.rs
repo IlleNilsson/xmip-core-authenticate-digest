@@ -10,7 +10,8 @@
 //! `H(that:nonce:cnonce)`.
 
 use authenticate::AuthenticateError;
-use authenticate::store::{MD5, SHA_256, hex, sha256};
+use authenticate::store::{MD5, SHA_256, sha256};
+use codec::hex;
 use identify::authorization;
 
 /// The hash a response was computed with.
@@ -58,8 +59,8 @@ impl Algorithm {
     #[must_use]
     pub fn hash(self, text: &str) -> String {
         match self {
-            Self::Md5 | Self::Md5Sess => format!("{:x}", md5::compute(text.as_bytes())),
-            Self::Sha256 | Self::Sha256Sess => hex(&sha256(text.as_bytes())),
+            Self::Md5 | Self::Md5Sess => hex::encode(&md5::compute(text.as_bytes()).0),
+            Self::Sha256 | Self::Sha256Sess => hex::encode(&sha256(text.as_bytes())),
         }
     }
 

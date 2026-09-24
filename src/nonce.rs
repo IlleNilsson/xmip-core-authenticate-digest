@@ -8,7 +8,8 @@
 //! forgotten the next time one is issued.
 
 use authenticate::AuthenticateError;
-use authenticate::store::{fresh_salt, hex};
+use authenticate::store::fresh_salt;
+use codec::hex;
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -52,7 +53,7 @@ impl Nonces {
     /// forget the ones that have gone stale.
     #[must_use]
     pub fn issue(&self, now: i64) -> String {
-        let nonce = hex(&fresh_salt("digest.nonce"));
+        let nonce = hex::encode(&fresh_salt("digest.nonce"));
         let mut book = self.book();
         book.retain(|_, (issued, _)| now.saturating_sub(*issued) < self.lifetime);
         book.insert(nonce.clone(), (now, 0));
