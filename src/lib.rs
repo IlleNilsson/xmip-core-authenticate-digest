@@ -28,8 +28,9 @@ pub use nonce::Nonces;
 pub use response::{Algorithm, Response};
 
 use authenticate::clock::Clock;
-use authenticate::store::{CredentialStore, constant_time_eq};
+use authenticate::store::CredentialStore;
 use authenticate::{AuthenticateError, Authenticator};
+use codec::constant_time;
 use context::Verified;
 use context::property::{HTTP_METHOD, HTTP_URI};
 use identify::Presented;
@@ -183,7 +184,7 @@ impl Authenticator for DigestAuthenticator {
             return Ok(Verified::Refused);
         };
         let expected = response.expected(ha1, method);
-        if !constant_time_eq(expected.as_bytes(), response.response.as_bytes()) {
+        if !constant_time::equal(expected.as_bytes(), response.response.as_bytes()) {
             return Ok(Verified::Refused);
         }
         self.nonces
