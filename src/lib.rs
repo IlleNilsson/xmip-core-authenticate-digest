@@ -117,33 +117,13 @@ impl DigestAuthenticator {
     }
 }
 
-/// Whether a claim is one this verifier reads: a bare `username`, or one
-/// the first gate already filed under `digest`.
-fn reads(mechanism: &Mechanism) -> bool {
-    let name = mechanism.name();
-    name == "username" || name == "digest"
-}
-
-fn evidence<'a>(presented: &'a Presented, name: &str) -> Option<&'a str> {
-    presented
-        .evidence
-        .iter()
-        .find(|(candidate, _)| candidate == name)
-        .map(|(_, value)| value.as_str())
-}
-
 impl Authenticator for DigestAuthenticator {
     fn mechanism(&self) -> Mechanism {
         mechanism::digest()
     }
 
     fn verify(&self, presented: &Presented) -> Result<Verified, AuthenticateError> {
-        if !reads(&presented.mechanism) {
-            return Err(AuthenticateError::new(format!(
-                "'{}' is not a claim the Digest verifier reads: it takes a username",
-                presented.mechanism.name()
-            )));
-        }
+        authenticate::account::user_claim(presented, &self.mechanism())?;
         let list = presented.proof(evidence::DIGEST_RESPONSE).ok_or_else(|| {
             AuthenticateError::new(format!(
                 "no '{DIGEST_RESPONSE}' proof was presented with the username '{}'",
@@ -163,14 +143,15 @@ impl Authenticator for DigestAuthenticator {
                 response.realm, self.realm
             )));
         }
-        let method = evidence(presented, HTTP_METHOD)
+        let method = presented
+            .evidence(HTTP_METHOD)
             .or(self.method.as_deref())
             .ok_or_else(|| {
                 AuthenticateError::new(format!(
                     "the claim carries no '{HTTP_METHOD}' evidence and no method is configured"
                 ))
             })?;
-        if let Some(target) = evidence(presented, HTTP_URI)
+        if let Some(target) = presented.evidence(HTTP_URI)
             && target != response.uri
         {
             return Err(AuthenticateError::new(format!(
