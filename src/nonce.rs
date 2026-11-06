@@ -10,7 +10,8 @@
 use authenticate::AuthenticateError;
 use codec::{hex, random};
 use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Mutex, MutexGuard};
+use xcore::lock::Locked;
 
 /// How long a nonce is good for unless configured otherwise, in seconds.
 pub const DEFAULT_LIFETIME: i64 = 300;
@@ -45,7 +46,7 @@ impl Nonces {
     }
 
     fn book(&self) -> MutexGuard<'_, HashMap<String, (i64, u32)>> {
-        self.issued.lock().unwrap_or_else(PoisonError::into_inner)
+        self.issued.locked()
     }
 
     /// Issue a nonce at `now`, for the `WWW-Authenticate` challenge, and
