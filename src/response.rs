@@ -13,6 +13,7 @@ use authenticate::AuthenticateError;
 use authenticate::store::{MD5, SHA_256, sha256};
 use codec::hex;
 use identify::authorization;
+use md5::{Digest, Md5};
 
 /// The hash a response was computed with.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,7 +60,7 @@ impl Algorithm {
     #[must_use]
     pub fn hash(self, text: &str) -> String {
         match self {
-            Self::Md5 | Self::Md5Sess => hex::encode(&md5::compute(text.as_bytes()).0),
+            Self::Md5 | Self::Md5Sess => hex::encode(&Md5::digest(text.as_bytes())),
             Self::Sha256 | Self::Sha256Sess => hex::encode(&sha256(text.as_bytes())),
         }
     }
