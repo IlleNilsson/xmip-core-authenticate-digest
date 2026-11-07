@@ -22,8 +22,9 @@ authenticate = { package = "xmip-core-authenticate", git = "https://github.com/I
 identify = { package = "xmip-core-identify", git = "https://github.com/IlleNilsson/xmip-core-identify", branch = "main" }
 xcore = { package = "xmip-core", git = "https://github.com/IlleNilsson/xmip-core", branch = "main" }
 context = { package = "xmip-core-context", git = "https://github.com/IlleNilsson/xmip-core-context", branch = "main" }
-# RFC 7616 names MD5 beside SHA-256, and clients still send it. Pure Rust.
-md5 = "0.8"
+# RFC 7616 names MD5 beside SHA-256, and clients still send it. Pure Rust:
+# RustCrypto's, as the SHA-256 beside it (`sha2`) and NTLM's MD5 are.
+md-5 = "0.11"
 # The estate's encoding primitives: hex, which Digest writes every hash in.
 codec = { package = "xmip-core-library-codec", git = "https://github.com/IlleNilsson/xmip-core-library-codec", branch = "main" }
 
