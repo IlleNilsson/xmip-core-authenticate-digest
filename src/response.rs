@@ -10,7 +10,8 @@
 //! `H(that:nonce:cnonce)`.
 
 use authenticate::AuthenticateError;
-use authenticate::store::{MD5, SHA_256, sha256};
+use authenticate::store::{MD5, SHA_256};
+use codec::digest::sha256;
 use codec::hex;
 use identify::authorization;
 use md5::{Digest, Md5};
